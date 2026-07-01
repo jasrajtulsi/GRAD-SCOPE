@@ -1,0 +1,11 @@
+# Obsidian local / per-machine state (do not sync)
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.obsidian/plugins/*/data.json.bak
+
+# Obsidian trash
+.trash/
+
+# OS cruft
+.DS_Store
