@@ -9,3 +9,16 @@
 
 # OS cruft
 .DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# GRAD-SCOPE generated artifacts (keep the dirs, ignore their contents)
+results/*
+figures/*
+!results/.gitkeep
+!figures/.gitkeep
