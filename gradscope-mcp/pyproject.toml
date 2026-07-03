@@ -1,0 +1,14 @@
+[project]
+name = "gradscope-mcp"
+version = "0.1.0"
+description = "MCP server for live GRAD-SCOPE training monitoring (gradient signal-to-noise ratios, layer health states, and early-warning lead times)."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.4.0",
+]
+
+# This is a standalone single-file server, not an installable library package,
+# so uv should not try to build it — just resolve its dependencies.
+[tool.uv]
+package = false
