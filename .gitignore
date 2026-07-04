@@ -17,6 +17,9 @@ __pycache__/
 venv/
 *.egg-info/
 
+# Datasets (downloaded by torchvision)
+data/
+
 # GRAD-SCOPE generated artifacts (keep the dirs, ignore their contents)
 results/*
 figures/*

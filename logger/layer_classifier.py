@@ -4,7 +4,7 @@ Two distinct notions of "classification" live here:
 
 1. :class:`LayerClassifier` / :class:`LayerType` map modules to *architectural*
    categories (conv, batchnorm, linear, shortcut, ...) and to a normalized
-   depth, so gradient statistics can be grouped across architectures. Stub only.
+   depth, so gradient statistics can be grouped across architectures.
 
 2. :func:`classify` and friends map a layer's *gradient-flow health* to one of
    :class:`GradientState` (HEALTHY, STAGNANT, NOISY, DEAD) from its GSNR history.
@@ -29,23 +29,66 @@ class LayerType(Enum):
     OTHER = "other"
 
 
+_NORM_MODULES = (
+    nn.BatchNorm1d,
+    nn.BatchNorm2d,
+    nn.BatchNorm3d,
+    nn.SyncBatchNorm,
+    nn.GroupNorm,
+    nn.LayerNorm,
+    nn.InstanceNorm1d,
+    nn.InstanceNorm2d,
+    nn.InstanceNorm3d,
+)
+
+
 class LayerClassifier:
-    """Assign a LayerType and a normalized depth to each parameterized module."""
+    """Assign a LayerType and a normalized depth to each parameterized module.
+
+    On construction, walks the model's leaf modules in ``named_modules`` order
+    (which follows the forward-pass definition order) and records every module
+    that owns at least one parameter. Depth is that ordering normalized to
+    [0, 1], so statistics can be compared across architectures of different
+    sizes.
+    """
 
     def __init__(self, model: nn.Module) -> None:
-        raise NotImplementedError
+        self.model = model
+        self._order: list[str] = []
+        self._types: dict[str, LayerType] = {}
+        for name, module in model.named_modules():
+            if name == "" or next(module.children(), None) is not None:
+                continue  # composite module; only leaves are classified
+            if next(module.parameters(recurse=False), None) is None:
+                continue  # no parameters (ReLU, Identity, pooling, ...)
+            self._order.append(name)
+            self._types[name] = self.classify(name, module)
 
     def classify(self, name: str, module: nn.Module) -> LayerType:
         """Return the LayerType for a single named module."""
-        raise NotImplementedError
+        # A projection inside a residual shortcut is its own category, whatever
+        # its module type, so shortcut gradients can be analyzed separately.
+        if "shortcut" in name or "downsample" in name:
+            return LayerType.SHORTCUT
+        if isinstance(module, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
+            return LayerType.CONV
+        if isinstance(module, _NORM_MODULES):
+            return LayerType.NORM
+        if isinstance(module, nn.Linear):
+            return LayerType.LINEAR
+        return LayerType.OTHER
 
     def depth_of(self, name: str) -> float:
         """Return the module's depth normalized to [0, 1] (input -> output)."""
-        raise NotImplementedError
+        if name not in self._types:
+            raise KeyError(f"unknown or unparameterized module: {name!r}")
+        if len(self._order) == 1:
+            return 0.0
+        return self._order.index(name) / (len(self._order) - 1)
 
     def layer_map(self) -> dict[str, LayerType]:
         """Return a mapping from module name to its LayerType."""
-        raise NotImplementedError
+        return dict(self._types)
 
 
 # --------------------------------------------------------------------------- #
@@ -268,5 +311,33 @@ if __name__ == "__main__":
     # The dead layer only crosses the patience threshold once 5 readings exist.
     assert heat["states"][2][-1] == GradientState.DEAD.value
     assert heat["states"][0][-1] == GradientState.HEALTHY.value
+
+    # -- LayerClassifier on a small mixed model ------------------------------ #
+    demo = nn.Sequential()
+    demo.add_module("conv", nn.Conv2d(3, 8, 3, padding=1))
+    demo.add_module("bn", nn.BatchNorm2d(8))
+    demo.add_module("relu", nn.ReLU())  # unparameterized: excluded
+    demo.add_module(
+        "shortcut", nn.Sequential(nn.Conv2d(8, 8, 1))  # nested leaf -> shortcut.0
+    )
+    demo.add_module("fc", nn.Linear(8, 2))
+
+    lc = LayerClassifier(demo)
+    lmap = lc.layer_map()
+    print("\nLayerClassifier.layer_map():")
+    for name, ltype in lmap.items():
+        print(f"  {name:>12}: {ltype.value}  (depth {lc.depth_of(name):.2f})")
+    assert lmap["conv"] == LayerType.CONV
+    assert lmap["bn"] == LayerType.NORM
+    assert lmap["shortcut.0"] == LayerType.SHORTCUT
+    assert lmap["fc"] == LayerType.LINEAR
+    assert "relu" not in lmap
+    assert lc.depth_of("conv") == 0.0
+    assert lc.depth_of("fc") == 1.0
+    try:
+        lc.depth_of("relu")
+        raise AssertionError("depth_of should reject unparameterized modules")
+    except KeyError:
+        pass
 
     print("\nall layer-classifier checks passed ✓")

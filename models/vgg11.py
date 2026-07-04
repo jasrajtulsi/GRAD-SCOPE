@@ -26,12 +26,15 @@ class VGG11(nn.Module):
         # Adaptive pooling makes the classifier input size independent of the
         # spatial resolution (7x7 keeps the classic VGG head shape).
         self.avgpool = nn.AdaptiveAvgPool2d((7, 7))
+        # ReLUs are deliberately not in-place: GradientLogger attaches full
+        # backward hooks to every leaf module, and autograd forbids in-place
+        # modification of a hooked module's output.
         self.classifier = nn.Sequential(
             nn.Linear(512 * 7 * 7, 4096),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(4096, 4096),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(4096, num_classes),
         )
@@ -47,7 +50,7 @@ class VGG11(nn.Module):
             layers.append(nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1))
             if not remove_bn:
                 layers.append(nn.BatchNorm2d(out_channels))
-            layers.append(nn.ReLU(inplace=True))
+            layers.append(nn.ReLU())
             in_channels = out_channels
         return nn.Sequential(*layers)
 

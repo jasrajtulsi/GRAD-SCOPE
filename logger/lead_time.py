@@ -179,22 +179,40 @@ def compute_all(
 
 
 class LeadTimeAnalyzer:
-    """Measure lead time between gradient-flow anomalies and performance drops."""
+    """Measure lead time between gradient-flow anomalies and performance drops.
+
+    ``gradient_records`` — one entry per epoch, each a ``{layer: state}`` mapping
+    (or iterable of states) in the same form :func:`detect_signal_gsnr` accepts.
+    ``performance_records`` — per-epoch validation accuracies.
+    """
 
     def __init__(self, gradient_records: Any, performance_records: Any) -> None:
-        raise NotImplementedError
+        self.gradient_records = list(gradient_records)
+        self.performance_records = [float(a) for a in performance_records]
 
-    def detect_anomalies(self) -> Any:
-        """Return the steps at which gradient-flow anomalies are detected."""
-        raise NotImplementedError
+    def detect_anomalies(self) -> list[int]:
+        """Return every epoch at which any layer's gradient is NOISY or DEAD."""
+        return [
+            epoch
+            for epoch, entry in enumerate(self.gradient_records)
+            if any(state in ("NOISY", "DEAD") for state in _iter_states(entry))
+        ]
 
-    def detect_performance_drops(self) -> Any:
-        """Return the steps at which validation performance degrades."""
-        raise NotImplementedError
+    def detect_performance_drops(self) -> list[int]:
+        """Return the onset epoch of the validation collapse ([] if none)."""
+        failure = detect_failure(self.performance_records)
+        return [] if failure is None else [failure]
 
-    def compute_lead_time(self) -> Any:
-        """Return the lead time (in steps/epochs) for each detected event."""
-        raise NotImplementedError
+    def compute_lead_time(self) -> Optional[int]:
+        """Epochs by which the first anomaly preceded the performance collapse.
+
+        Positive means advance warning; ``None`` if either never occurred.
+        """
+        anomalies = self.detect_anomalies()
+        drops = self.detect_performance_drops()
+        if not anomalies or not drops:
+            return None
+        return drops[0] - anomalies[0]
 
 
 if __name__ == "__main__":
@@ -269,5 +287,16 @@ if __name__ == "__main__":
     assert all(none_result[k] is None for k in none_result), none_result
     # NaN loss is flagged immediately.
     assert detect_signal_loss([1.0, float("nan"), 0.5]) == 1
+
+    # LeadTimeAnalyzer wraps the same detectors.
+    analyzer = LeadTimeAnalyzer(layer_states, val_accs)
+    assert analyzer.detect_anomalies()[0] == 3
+    assert analyzer.detect_performance_drops() == [6]
+    assert analyzer.compute_lead_time() == 3
+    stable_analyzer = LeadTimeAnalyzer([{"l0": "HEALTHY"}] * 6, stable)
+    assert stable_analyzer.detect_anomalies() == []
+    assert stable_analyzer.detect_performance_drops() == []
+    assert stable_analyzer.compute_lead_time() is None
+    print("LeadTimeAnalyzer: lead time =", analyzer.compute_lead_time())
 
     print("\nall lead-time checks passed ✓")
