@@ -1,6 +1,0 @@
-.venv/
-out/
-__pycache__/
-.ruff_cache/
-data/
-*.pt

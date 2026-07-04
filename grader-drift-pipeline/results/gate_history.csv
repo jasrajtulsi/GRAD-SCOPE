@@ -1,4 +1,0 @@
-timestamp,candidate,incumbent,cand_gsnr,cand_gradnorm,cand_qc_acc,inc_gsnr,inc_gradnorm,inc_qc_acc,verdict
-2026-07-04,cand_healthy.pt,standin.pt,0.0549127,15.6106,0.9609,0.0551773,18.4921,0.9316,PASS
-2026-07-04,cand_overfit.pt,standin.pt,0.0373245,16.4802,0.7402,0.0551773,18.4921,0.9316,BLOCK
-2026-07-04,cand_undertrained.pt,standin.pt,0.105547,31.211,0.3184,0.0551773,18.4921,0.9316,BLOCK

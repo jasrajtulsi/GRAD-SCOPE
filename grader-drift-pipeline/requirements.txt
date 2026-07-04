@@ -1,2 +1,0 @@
-albumentations
-# torch/torchvision: install from nightly cu126 index, see README Setup
