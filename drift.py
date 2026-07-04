@@ -57,8 +57,10 @@ def make_transform(corruption: str, severity: float) -> A.BasicTransform:
             ]
         )
     if corruption == "colortemp":
-        # warm drift: +R, -B, up to 50/255 at full severity
-        shift = int(50 * s)
+        # warm drift: +R, -B, up to 50/255 at full severity. Pass fractions:
+        # albumentations reads |shift| <= 1 as a fraction of 255, so an int
+        # shift of 1 (severity ~0.02-0.04) would mean a full-scale +255 shift.
+        shift = 50 * s / 255
         return A.RGBShift(
             r_shift_limit=(shift, shift), g_shift_limit=(0, 0), b_shift_limit=(-shift, -shift), p=1.0
         )

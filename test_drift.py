@@ -62,6 +62,14 @@ def main() -> None:
 
     assert ".png" in IMG_EXTS
     make_transform("lighting", 0.5)  # smoke: mid-severity constructs
+
+    # regression: low-severity colortemp must be a small shift, not a
+    # full-scale one (albumentations reads |shift| <= 1 as fraction of 255)
+    img = np.full((8, 8, 3), 100, np.uint8)
+    t = make_transform("colortemp", 0.03)
+    t.set_random_seed(0)
+    diff = np.abs(t(image=img)["image"].astype(int) - 100).max()
+    assert diff <= 5, f"low-severity colortemp shifted by {diff}"
     print("all checks passed")
 
 

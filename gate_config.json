@@ -1,0 +1,7 @@
+{
+  "metric": "gsnr",
+  "rel_margin": 0.8,
+  "acc_margin": 0.02,
+  "absolute_threshold": null,
+  "note": "relative gate until >=5 cycles accumulate, then set absolute_threshold"
+}
