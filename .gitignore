@@ -25,3 +25,8 @@ results/*
 figures/*
 !results/.gitkeep
 !figures/.gitkeep
+
+# graphify per-machine state and extraction cache
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/cache/
